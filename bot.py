@@ -3,6 +3,7 @@ import schedule
 import time
 from telebot.types import Message
 from datetime import datetime
+from pytz import timezone
 
 TOKEN = '731991040:AAHKCcrcVRKDYvrPyupl8COe0JLLYtaKHk8'
 bot = telebot.TeleBot(TOKEN)
@@ -44,7 +45,8 @@ def send_today_schedule(message: Message, day=dayOfWeek):
 
 @bot.message_handler(commands=['time'])
 def send_schedule(message):
-    bot.reply_to(message, text=datetime.today())
+    fmt = '%H:%M:%S'
+    bot.reply_to(message, text=datetime.today(timezone('Europe/Kiev')).strftime(fmt))
 
 
 @bot.message_handler(commands=['schedule'])
