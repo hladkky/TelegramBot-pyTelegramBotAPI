@@ -46,7 +46,7 @@ def send_today_schedule(message: Message, day=dayOfWeek):
 @bot.message_handler(commands=['time'])
 def send_schedule(message):
     fmt = '%H:%M:%S'
-    bot.reply_to(message, text=datetime.today(timezone('Europe/Kiev')).strftime(fmt))
+    bot.reply_to(message, text=datetime.now(timezone('Europe/Kiev')).strftime(fmt))
 
 
 @bot.message_handler(commands=['schedule'])
