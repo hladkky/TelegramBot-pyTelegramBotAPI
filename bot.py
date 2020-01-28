@@ -1,44 +1,32 @@
 import telebot
-import schedule
-import time
 from telebot.types import Message
 from datetime import datetime
-from pytz import timezone
 
 TOKEN = '731991040:AAHKCcrcVRKDYvrPyupl8COe0JLLYtaKHk8'
 bot = telebot.TeleBot(TOKEN)
 
 idChat = '531381261'
 
-evenWeek = 1
 
-
-def changeevenweek():
-    global evenWeek
-    evenWeek = 0 if evenWeek else 1
-
-
-schedule.every().saturday.do(changeevenweek)
-
-
-isEvenWeek = 5 * 6 * evenWeek - 2
-dayOfWeek = datetime.today().weekday()
+first_saturday = datetime(2020, 1, 18)
 
 
 @bot.message_handler(commands=['today', 'tomorrow'])
-def send_today_schedule(message: Message, day=dayOfWeek):
-    with open('schedule.txt', encoding='utf-8') as f:
-        if '/tomorrow' in message.text:
-            day += 1
-
-        if day == 5 or day == 6:
-            bot.send_message(message.chat.id, text='*Вихідний*', parse_mode='Markdown')
-        else:
+def send_today_schedule(message: Message):
+    day_of_week = datetime.today().weekday()
+    current_week = ((datetime.today() - first_saturday).days // 7) % 2
+    if '/tomorrow' in message.text:
+        day_of_week += 1
+    if day_of_week == 5 or day_of_week == 6:
+        bot.send_message(message.chat.id, text='*Вихідний*', parse_mode='Markdown')
+    else:
+        # numOfDay
+        with open('schedule.txt', encoding='utf-8') as f:
             received_schedule = f.readlines()
-            answer = received_schedule[isEvenWeek] + '\n'
+            answer = received_schedule[28 * current_week] + '\n'
 
             for numOfLine in range(5):
-                answer += received_schedule[2 + 5 * day + isEvenWeek + numOfLine]
+                answer += received_schedule[2 + 5 * day_of_week + 28 * current_week + numOfLine]
 
             bot.send_message(message.chat.id, text=answer, parse_mode='Markdown')
 
@@ -46,7 +34,7 @@ def send_today_schedule(message: Message, day=dayOfWeek):
 @bot.message_handler(commands=['time'])
 def send_schedule(message):
     fmt = '%H:%M:%S'
-    bot.reply_to(message, text=datetime.now(timezone('Europe/Kiev')).strftime(fmt))
+    bot.reply_to(message, text=datetime.now().strftime(fmt))
 
 
 @bot.message_handler(commands=['schedule'])
@@ -71,8 +59,3 @@ def send_teachers(message):
 
 
 bot.polling()
-
-
-while True:
-    schedule.run_pending()
-    time.sleep(1)

@@ -1,5 +1,3 @@
 pyTelegramBotAPI
 datetime
-telebot
 schedule
-pytz
