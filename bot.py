@@ -80,7 +80,9 @@ def set_step(message):
                          reply_markup=telebot.types.ReplyKeyboardRemove())
     else:
         buffer['mode'] = message.text
-        msg = bot.send_message(message.chat.id, text='Нове завдання:')
+        msg = bot.send_message(message.chat.id,
+                               text='Нове завдання:',
+                               reply_markup=telebot.types.ReplyKeyboardRemove())
         bot.register_next_step_handler(msg, new_task_step)
 
 
@@ -94,9 +96,9 @@ def new_task_step(message):
             homework[discipline] = message.text
         else:
             homework[discipline] += f'\n   {message.text}'
-        bot.send_message(message.chat.id,
-                         text='Успішно оновлено!',
-                         reply_markup=telebot.types.ReplyKeyboardRemove())
+    bot.send_message(message.chat.id,
+                     text='Успішно оновлено!',
+                     reply_markup=telebot.types.ReplyKeyboardRemove())
 
 
 @bot.message_handler(commands=['today', 'tomorrow'])
