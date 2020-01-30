@@ -24,6 +24,17 @@ buffer = {}
 first_saturday = datetime(2020, 1, 18)
 
 
+@bot.message_handler(commands=['start'])
+def welcome(message):
+    reply = "Привіт. Радий вітати тебе!\n" \
+            "Це наш бот.\n\nА наш староста завжди оновлює список дз.\n\n" \
+            "Використовуй команду /homework аби дізнатись актуальний список дз.\n" \
+            "\nЗі скаргами та пропозиціями писати @hladkky"
+    with open('sticker.webp', 'rb') as sti:
+        bot.send_sticker(message.chat.id, sti)
+    bot.send_message(message.chat.id, reply)
+
+
 @bot.message_handler(commands=['homework'])
 def send_homework(message):
     answer = ''
