@@ -15,10 +15,10 @@ first_week = int(datetime(2020, 1, 18).strftime('%W'))
 
 
 # Run while modification process
-@bot.message_handler(func=lambda message: message.from_user.id != 531381261)
-def work(message):
-    if message.from_user.id != 531381261:
-        bot.send_message(message.chat.id, text='Бот модифікується. Зачекайте ще трохи...')
+# @bot.message_handler(func=lambda message: message.from_user.id != 531381261)
+# def work(message):
+#     if message.from_user.id != 531381261:
+#         bot.send_message(message.chat.id, text='Бот модифікується. Зачекайте ще трохи...')
 
 
 @bot.message_handler(commands=['start'])
