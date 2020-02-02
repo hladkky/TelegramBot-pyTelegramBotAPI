@@ -2,26 +2,22 @@ import telebot
 from telebot.types import Message
 from datetime import datetime
 
-
 TOKEN = '731991040:AAHKCcrcVRKDYvrPyupl8COe0JLLYtaKHk8'
 bot = telebot.TeleBot(TOKEN)
 
 permissionsID = 393253446, 531381261
-bmd = 'Обробка та аналіз БМД'
-web = 'Веб-технології та веб-дизайн'
-cm = 'Чисельні методи'
-oop = 'ООП'
-bi = 'Біоінформатика-1. Основи МББ'
-en = 'Іноземна мова'
-homework = {bmd: None,
-            web: None,
-            cm: None,
-            oop: None,
-            bi: None,
-            en: None}
+bmd, web, cm, oop, bi, en = 'Обробка та аналіз БМД', 'Веб-технології та веб-дизайн',\
+                            'Чисельні методи', 'ООП', 'Біоінформатика-1. Основи МББ', 'Іноземна мова'
+homework = {bmd: None, web: None, cm: None, oop: None, bi: None, en: None}
 buffer = {}
 
-first_saturday = datetime(2020, 1, 18)
+first_week = int(datetime(2020, 1, 18).strftime('%W'))
+
+# Run while modification process
+# @bot.message_handler(func=lambda message: message.from_user.id != 531381261)
+# def work(message):
+#     # if message.from_user.id != 531381261:
+#     bot.send_message(message.chat.id, text='Бот модифікується. Зачекайте ще трохи...')
 
 
 @bot.message_handler(commands=['start'])
@@ -45,6 +41,7 @@ def send_homework(message):
     bot.send_message(message.chat.id, answer, parse_mode='Markdown')
 
 
+# ---------------------- SETHOMEWORK STEPS ----------------------
 @bot.message_handler(commands=['sethomework'])
 def set_homework(message: Message):
     if message.chat.type != 'private':
@@ -52,7 +49,7 @@ def set_homework(message: Message):
     elif message.from_user.id not in permissionsID:
         bot.send_message(message.chat.id, 'Відсутні права доступу.')
     else:
-        markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True)
+        markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
         markup.add(bmd, web, cm, oop, bi, en)
         msg = bot.send_message(message.chat.id, 'Дисципліна:', reply_markup=markup)
         bot.register_next_step_handler(msg, name_step)
@@ -64,9 +61,8 @@ def name_step(message):
         bot.reply_to(message, 'Предмет відсутній', reply_markup=telebot.types.ReplyKeyboardRemove())
         return
     buffer['name'] = name
-    print(buffer)
     reply = 'Додати, перезаписати, видалити?'
-    markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
     markup.add('Додати', 'Перезаписати', 'Видалити')
     msg = bot.reply_to(message, text=reply, reply_markup=markup)
     bot.register_next_step_handler(msg, set_step)
@@ -97,35 +93,41 @@ def new_task_step(message):
         else:
             homework[discipline] += f'\n   {message.text}'
     bot.send_message(message.chat.id,
-                     text='Успішно оновлено!',
+                     text="Укажіть дедлайн вказаного завдання:",
                      reply_markup=telebot.types.ReplyKeyboardRemove())
+    bot.register_next_step_handler(message, set_date)
+
+
+def set_date(message):
+    discipline = buffer['name']
+    homework[discipline] += f'\n    \u21b3 *{message.text}*'
+    bot.send_message(message.chat.id, 'Успішно оновлено!')
+# ---------------------- SETHOMEWORK END ----------------------
 
 
 @bot.message_handler(commands=['today', 'tomorrow'])
 def send_today_schedule(message: Message):
+    current_week = int(datetime.today().strftime('%W'))
     day_of_week = datetime.today().weekday()
-    current_week = ((datetime.today() - first_saturday).days // 7) % 2
     if '/tomorrow' in message.text:
-        day_of_week += 1
+        day_of_week = (day_of_week + 1) // 8
+    even_week = (current_week - first_week) % 2
     if day_of_week == 5 or day_of_week == 6:
         bot.send_message(message.chat.id, text='*Вихідний*', parse_mode='Markdown')
     else:
         # numOfDay
         with open('schedule.txt', encoding='utf-8') as f:
             received_schedule = f.readlines()
-            answer = received_schedule[28 * current_week] + '\n'
+            answer = received_schedule[28 * even_week] + '\n'
 
             for numOfLine in range(5):
-                answer += received_schedule[2 + 5 * day_of_week + 28 * current_week + numOfLine]
+                answer += received_schedule[2 + 5 * day_of_week + 28 * even_week + numOfLine]
 
             bot.send_message(message.chat.id, text=answer, parse_mode='Markdown')
 
 
 @bot.message_handler(commands=['time'])
 def send_schedule(message):
-
-    print(message.from_user)
-
     fmt = '%H:%M:%S'
     bot.reply_to(message, text=datetime.now().strftime(fmt))
 
@@ -149,5 +151,6 @@ def send_teachers(message):
         bot.send_message(message.chat.id,
                          text=answer,
                          parse_mode='Markdown')
+
 
 bot.polling()
