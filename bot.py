@@ -8,16 +8,17 @@ bot = telebot.TeleBot(TOKEN)
 permissionsID = 393253446, 531381261
 bmd, web, cm, oop, bi, en = 'Обробка та аналіз БМД', 'Веб-технології та веб-дизайн',\
                             'Чисельні методи', 'ООП', 'Біоінформатика-1. Основи МББ', 'Іноземна мова'
-homework = {bmd: None, web: None, cm: None, oop: None, bi: None, en: None}
+homework = {bmd: {}, web: {}, cm: {}, oop: {}, bi: {}, en: {}}
 buffer = {}
 
 first_week = int(datetime(2020, 1, 18).strftime('%W'))
 
+
 # Run while modification process
-# @bot.message_handler(func=lambda message: message.from_user.id != 531381261)
-# def work(message):
-#     # if message.from_user.id != 531381261:
-#     bot.send_message(message.chat.id, text='Бот модифікується. Зачекайте ще трохи...')
+@bot.message_handler(func=lambda message: message.from_user.id != 531381261)
+def work(message):
+    if message.from_user.id != 531381261:
+        bot.send_message(message.chat.id, text='Бот модифікується. Зачекайте ще трохи...')
 
 
 @bot.message_handler(commands=['start'])
@@ -35,18 +36,20 @@ def welcome(message):
 def send_homework(message):
     answer = ''
     for d, hw in homework.items():
+        task_list = ''
         if not hw:
-            hw = '-'
-        answer += f'*{d}*:\n   {hw}\n'
+            task_list += '\n   -'
+        else:
+            for task, date in hw.items():
+                task_list += f'\n   *{task}*:\n   {date}'
+        answer += f'*{d}*:   {task_list}\n'
     bot.send_message(message.chat.id, answer, parse_mode='Markdown')
 
 
 # ---------------------- SETHOMEWORK STEPS ----------------------
 @bot.message_handler(commands=['sethomework'])
 def set_homework(message: Message):
-    if message.chat.type != 'private':
-        bot.send_message(message.chat.id, 'Команда доступна в приватних повідомленнях.')
-    elif message.from_user.id not in permissionsID:
+    if message.from_user.id not in permissionsID:
         bot.send_message(message.chat.id, 'Відсутні права доступу.')
     else:
         markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
@@ -70,28 +73,35 @@ def name_step(message):
 
 def set_step(message):
     if message.text == 'Видалити':
-        homework[buffer['name']] = None
-        bot.send_message(message.chat.id,
-                         text='Успішно видалено!',
-                         reply_markup=telebot.types.ReplyKeyboardRemove())
+        markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+        markup.add('Усі завдання')
+        for task in homework[buffer['name']]:
+            markup.add(task)
+        msg = bot.send_message(message.chat.id, 'Оберіть завдання:', reply_markup=markup)
+        bot.register_next_step_handler(msg, choose_delete_task)
+        return
+    elif message.text == 'Перезаписати':
+        homework[buffer['name']] = {}
+    msg = bot.send_message(message.chat.id,
+                           text='Нове завдання:',
+                           reply_markup=telebot.types.ReplyKeyboardRemove())
+    bot.register_next_step_handler(msg, new_task_step)
+
+
+def choose_delete_task(message):
+    discipline = buffer['name']
+    if message.text == 'Усі завдання':
+        homework[discipline] = []
     else:
-        buffer['mode'] = message.text
-        msg = bot.send_message(message.chat.id,
-                               text='Нове завдання:',
-                               reply_markup=telebot.types.ReplyKeyboardRemove())
-        bot.register_next_step_handler(msg, new_task_step)
+        del homework[discipline][message.text]
+    bot.send_message(message.chat.id,
+                     text='Успішно видалено!',
+                     reply_markup=telebot.types.ReplyKeyboardRemove())
 
 
 def new_task_step(message):
     discipline = buffer['name']
-    if not homework[discipline]:
-        homework[discipline] = message.text
-    else:
-        rewrite = 1 if buffer['mode'] == 'Перезаписати' else 0
-        if rewrite:
-            homework[discipline] = message.text
-        else:
-            homework[discipline] += f'\n   {message.text}'
+    buffer['task']=message.text
     bot.send_message(message.chat.id,
                      text="Укажіть дедлайн вказаного завдання:",
                      reply_markup=telebot.types.ReplyKeyboardRemove())
@@ -100,7 +110,8 @@ def new_task_step(message):
 
 def set_date(message):
     discipline = buffer['name']
-    homework[discipline] += f'\n    \u21b3 *{message.text}*'
+    task = buffer['task']
+    homework[discipline][task] = f'    \u21b3 *{message.text}*'
     bot.send_message(message.chat.id, 'Успішно оновлено!')
 # ---------------------- SETHOMEWORK END ----------------------
 
