@@ -8,17 +8,28 @@ bot = telebot.TeleBot(TOKEN)
 permissionsID = 393253446, 531381261
 bmd, web, cm, oop, bi, en = 'Обробка та аналіз БМД', 'Веб-технології та веб-дизайн',\
                             'Чисельні методи', 'ООП', 'Біоінформатика-1. Основи МББ', 'Іноземна мова'
-homework = {bmd: {}, web: {}, cm: {}, oop: {}, bi: {}, en: {}}
+homework = {bmd: {'Практик не буде' : '3.02 6.02 10.02'}, web: {}, cm: {'Пар не будет': '06.02 07.02 10.02'}, oop: {'Лекции не будет': '04.02'}, bi: {}, en: {}}
 buffer = {}
 
-first_week = int(datetime(2020, 1, 18).strftime('%W'))
+first_week = int(datetime(2020, 2, 3).strftime('%W'))
+current_week = int(datetime.today().strftime('%W'))
+
+mode = 1
+
+
+@bot.message_handler(commands=['mode'], func=lambda message: message.from_user.id == 531381261)
+def modification_processing(message):
+    global mode
+    mode = 0 if mode else 1
+    ans = 'Mod mode' if mode else 'Run mode'
+    bot.send_message(message.chat.id, text=ans)
 
 
 # Run while modification process
-# @bot.message_handler(func=lambda message: message.from_user.id != 531381261)
-# def work(message):
-#     if message.from_user.id != 531381261:
-#         bot.send_message(message.chat.id, text='Бот модифікується. Зачекайте ще трохи...')
+@bot.message_handler(regexp='/.+', func=lambda message: message.from_user.id != 531381261 and mode == 1)
+def work(message):
+    if message.from_user.id == 531381261:
+        bot.send_message(message.chat.id, text='Бот модифікується. Зачекайте ще трохи...')
 
 
 @bot.message_handler(commands=['start'])
@@ -32,17 +43,22 @@ def welcome(message):
     bot.send_message(message.chat.id, reply)
 
 
+@bot.message_handler(commands=['rawhw'])
+def send_raw_hw(message):
+    bot.send_message(message.chat.id, homework)
+
+
 @bot.message_handler(commands=['homework'])
 def send_homework(message):
-    answer = ''
+    answer = '\n'
     for d, hw in homework.items():
-        task_list = ''
+        task_list = '\n'
         if not hw:
-            task_list += '\n   -'
+            task_list += '\n   -\n'
         else:
             for task, date in hw.items():
-                task_list += f'\n   *{task}*:\n   {date}'
-        answer += f'*{d}*:   {task_list}\n'
+                task_list += f'\n   *{task}*:\n    \u21b3 {date}\n'
+        answer += f'*{d}*: {task_list}\n'
     bot.send_message(message.chat.id, answer, parse_mode='Markdown')
 
 
@@ -111,7 +127,7 @@ def new_task_step(message):
 def set_date(message):
     discipline = buffer['name']
     task = buffer['task']
-    homework[discipline][task] = f'    \u21b3 *{message.text}*'
+    homework[discipline][task] = {message.text}
     bot.send_message(message.chat.id, 'Успішно оновлено!')
 # ---------------------- SETHOMEWORK END ----------------------
 
@@ -121,12 +137,11 @@ def send_today_schedule(message: Message):
     current_week = int(datetime.today().strftime('%W'))
     day_of_week = datetime.today().weekday()
     if '/tomorrow' in message.text:
-        day_of_week = (day_of_week + 1) // 8
+        day_of_week = (day_of_week + 1) % 8
     even_week = (current_week - first_week) % 2
     if day_of_week == 5 or day_of_week == 6:
         bot.send_message(message.chat.id, text='*Вихідний*', parse_mode='Markdown')
     else:
-        # numOfDay
         with open('schedule.txt', encoding='utf-8') as f:
             received_schedule = f.readlines()
             answer = received_schedule[28 * even_week] + '\n'
