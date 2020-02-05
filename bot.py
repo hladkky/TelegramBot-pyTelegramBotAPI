@@ -8,11 +8,18 @@ bot = telebot.TeleBot(TOKEN)
 permissionsID = 393253446, 531381261
 bmd, web, cm, oop, bi, en = 'Обробка та аналіз БМД', 'Веб-технології та веб-дизайн',\
                             'Чисельні методи', 'ООП', 'Біоінформатика-1. Основи МББ', 'Іноземна мова'
-homework = {bmd: {'Практик не буде' : '3.02 6.02 10.02'}, web: {}, cm: {'Пар не будет': '06.02 07.02 10.02'}, oop: {'Лекции не будет': '04.02'}, bi: {}, en: {}}
+homework = {bmd: {'Практик не буде' : ['03.02', '06.02', '10.02']},
+            web: {},
+            cm: {'Пар не будет': ['06.02', '07.02', '10.02']},
+            oop: {'Лекции не будет': ['04.02']},
+            bi: {},
+            en: {}}
 buffer = {}
 
-first_week = int(datetime(2020, 2, 3).strftime('%W'))
+first_week = int(datetime(2020, 1, 25).strftime('%W'))
 current_week = int(datetime.today().strftime('%W'))
+today, time_now = datetime.today().strftime('%d.%m %H%M').split(' ')
+# print(today, time_now)
 
 mode = 1
 
@@ -28,8 +35,7 @@ def modification_processing(message):
 # Run while modification process
 @bot.message_handler(regexp='/.+', func=lambda message: message.from_user.id != 531381261 and mode == 1)
 def work(message):
-    if message.from_user.id == 531381261:
-        bot.send_message(message.chat.id, text='Бот модифікується. Зачекайте ще трохи...')
+    bot.send_message(message.chat.id, text='Бот модифікується. Зачекайте ще трохи...')
 
 
 @bot.message_handler(commands=['start'])
@@ -43,22 +49,18 @@ def welcome(message):
     bot.send_message(message.chat.id, reply)
 
 
-@bot.message_handler(commands=['rawhw'])
-def send_raw_hw(message):
-    bot.send_message(message.chat.id, homework)
-
-
 @bot.message_handler(commands=['homework'])
 def send_homework(message):
-    answer = '\n'
+    answer = ''
     for d, hw in homework.items():
-        task_list = '\n'
+        task_list = ''
         if not hw:
-            task_list += '\n   -\n'
+            task_list += '   -\n'
         else:
-            for task, date in hw.items():
-                task_list += f'\n   *{task}*:\n    \u21b3 {date}\n'
-        answer += f'*{d}*: {task_list}\n'
+            for task, dates in hw.items():
+                deadlines = " ".join(dates)
+                task_list += f'   *{task}*:\n    \u21b3 {deadlines}\n'
+        answer += f'*{d}*:\n {task_list}\n'
     bot.send_message(message.chat.id, answer, parse_mode='Markdown')
 
 
@@ -117,9 +119,9 @@ def choose_delete_task(message):
 
 def new_task_step(message):
     discipline = buffer['name']
-    buffer['task']=message.text
+    buffer['task'] = message.text
     bot.send_message(message.chat.id,
-                     text="Укажіть дедлайн вказаного завдання:",
+                     text="Укажіть одну або декілька дат у форматі 'dd.mm' через пробіл:",
                      reply_markup=telebot.types.ReplyKeyboardRemove())
     bot.register_next_step_handler(message, set_date)
 
@@ -127,8 +129,14 @@ def new_task_step(message):
 def set_date(message):
     discipline = buffer['name']
     task = buffer['task']
-    homework[discipline][task] = {message.text}
-    bot.send_message(message.chat.id, 'Успішно оновлено!')
+    dates = message.text.split(' ')
+    if all(len(d) == 5 for d in dates):
+        homework[discipline][task] = [message.text]
+        bot.send_message(message.chat.id, 'Успішно оновлено!')
+    else:
+        bot.send_message(message.chat.id, "Невірне введення. Введіть, будь ласка, усі дати "
+                                          "у форматі 'dd.mm' через пробіл")
+        bot.register_next_step_handler(message, set_date)
 # ---------------------- SETHOMEWORK END ----------------------
 
 
