@@ -1,6 +1,7 @@
 import telebot
-from telebot.types import Message
-from datetime import datetime
+from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from datetime import datetime, timezone, timedelta
+import sched
 
 TOKEN = '731991040:AAHKCcrcVRKDYvrPyupl8COe0JLLYtaKHk8'
 bot = telebot.TeleBot(TOKEN)
@@ -8,34 +9,61 @@ bot = telebot.TeleBot(TOKEN)
 permissionsID = 393253446, 531381261
 bmd, web, cm, oop, bi, en = 'Обробка та аналіз БМД', 'Веб-технології та веб-дизайн',\
                             'Чисельні методи', 'ООП', 'Біоінформатика-1. Основи МББ', 'Іноземна мова'
-homework = {bmd: {'Практик не буде' : ['03.02', '06.02', '10.02']},
+homework = {bmd: {},
             web: {},
-            cm: {'Пар не будет': ['06.02', '07.02', '10.02']},
-            oop: {'Лекции не будет': ['04.02']},
+            cm: {},
+            oop: {},
             bi: {},
             en: {}}
 buffer = {}
 
+time_of_lessons = [('0830', '1005'),
+                   ('1025', '1200'),
+                   ('1220', '1355'),
+                   ('1415', '1550')]
+
+tz = timezone(timedelta(hours=2))
+date = datetime.now(tz=tz)
+today, time_now = date.strftime('%d.%m %H%M').split(' ')
+day_of_week = date.weekday()
+
 first_week = int(datetime(2020, 1, 25).strftime('%W'))
-current_week = int(datetime.today().strftime('%W'))
-today, time_now = datetime.today().strftime('%d.%m %H%M').split(' ')
-# print(today, time_now)
-
-mode = 1
+current_week = int(date.strftime('%W'))
+even_week = str((current_week - first_week) % 2 + 1)
 
 
-@bot.message_handler(commands=['mode'], func=lambda message: message.from_user.id == 531381261)
-def modification_processing(message):
-    global mode
-    mode = 0 if mode else 1
-    ans = 'Mod mode' if mode else 'Run mode'
-    bot.send_message(message.chat.id, text=ans)
+@bot.message_handler(commands=['now'])
+def send_now(message):
+    num_of_lesson = -1
+    for start, end in time_of_lessons:
+        num_of_lesson += 1
+        if time_now < end:
+            break
+    else:
+        bot.send_message(message.chat.id, 'Пари закінчились.')
+        return
 
+    num_of_lesson=2
+    try:
+        lesson_now = sched.DICT[even_week][day_of_week][num_of_lesson]
+    except IndexError:
+        bot.send_message(message.chat.id, 'Пари закінчились.')
+        return
 
-# Run while modification process
-@bot.message_handler(regexp='/.+', func=lambda message: message.from_user.id != 531381261 and mode == 1)
-def work(message):
-    bot.send_message(message.chat.id, text='Бот модифікується. Зачекайте ще трохи...')
+    if time_now > start:
+        time_left = int(time_now) - int(start)
+        time_string = f'Минуло {time_left} хв. пари.'
+    else:
+        time_left = start - time_now
+        time_string = f'Пара розпочнеться за {time_left} хв.'
+
+    ans = '_' + time_string + '_\n'
+    ans += '*Дисципліна*: \n  \u2B91 ' + lesson_now[0] + '\n'
+    ans += '*Вид заняття*: \n  \u2B91 ' + lesson_now[-1] + '\n'
+    ans += '*Викладач*: \n  \u2B91 ' + '\n'.join(lesson_now[1]) + '\n'
+    ans += '*Локація*: \n  \u2B91 ' + lesson_now[2] + '\n'
+
+    bot.send_message(message.chat.id, ans, parse_mode='Markdown')
 
 
 @bot.message_handler(commands=['start'])
@@ -59,7 +87,8 @@ def send_homework(message):
         else:
             for task, dates in hw.items():
                 deadlines = " ".join(dates)
-                task_list += f'   *{task}*:\n    \u21b3 {deadlines}\n'
+                task_list += f'   \u2B9A *{task}*:\n    ' \
+                             f'    \u2BA1   {deadlines}\n'
         answer += f'*{d}*:\n {task_list}\n'
     bot.send_message(message.chat.id, answer, parse_mode='Markdown')
 
@@ -120,8 +149,16 @@ def choose_delete_task(message):
 def new_task_step(message):
     discipline = buffer['name']
     buffer['task'] = message.text
+
+    markup = InlineKeyboardMarkup()
+
+    item1 = InlineKeyboardButton('1')
+    item2 = InlineKeyboardButton('2')
+
+    markup.add(item1, item2)
+
     bot.send_message(message.chat.id,
-                     text="Укажіть одну або декілька дат у форматі 'dd.mm' через пробіл:",
+                     text="Укажіть одну або декілька дат для заданого завдання:",
                      reply_markup=telebot.types.ReplyKeyboardRemove())
     bot.register_next_step_handler(message, set_date)
 
@@ -130,61 +167,67 @@ def set_date(message):
     discipline = buffer['name']
     task = buffer['task']
     dates = message.text.split(' ')
-    if all(len(d) == 5 for d in dates):
-        homework[discipline][task] = [message.text]
-        bot.send_message(message.chat.id, 'Успішно оновлено!')
-    else:
-        bot.send_message(message.chat.id, "Невірне введення. Введіть, будь ласка, усі дати "
-                                          "у форматі 'dd.mm' через пробіл")
-        bot.register_next_step_handler(message, set_date)
+    homework[discipline][task] = [message.text]
+    bot.send_message(message.chat.id, 'Успішно оновлено!')
 # ---------------------- SETHOMEWORK END ----------------------
 
 
 @bot.message_handler(commands=['today', 'tomorrow'])
 def send_today_schedule(message: Message):
-    current_week = int(datetime.today().strftime('%W'))
-    day_of_week = datetime.today().weekday()
+    global day_of_week
+    _day_of_week = day_of_week
     if '/tomorrow' in message.text:
-        day_of_week = (day_of_week + 1) % 8
-    even_week = (current_week - first_week) % 2
-    if day_of_week == 5 or day_of_week == 6:
+        _day_of_week = (_day_of_week + 1) % 7
+    if _day_of_week == 5 or _day_of_week == 6:
         bot.send_message(message.chat.id, text='*Вихідний*', parse_mode='Markdown')
     else:
-        with open('schedule.txt', encoding='utf-8') as f:
-            received_schedule = f.readlines()
-            answer = received_schedule[28 * even_week] + '\n'
-
-            for numOfLine in range(5):
-                answer += received_schedule[2 + 5 * day_of_week + 28 * even_week + numOfLine]
-
-            bot.send_message(message.chat.id, text=answer, parse_mode='Markdown')
-
-
-@bot.message_handler(commands=['time'])
-def send_schedule(message):
-    fmt = '%H:%M:%S'
-    bot.reply_to(message, text=datetime.now().strftime(fmt))
+        ans = '*' + sched.weekdays[_day_of_week] + '*\n'
+        i = 1
+        for full_day in sched.DICT[even_week][_day_of_week]:
+            ans += '\u255F ' if full_day != sched.DICT[even_week][_day_of_week][-1] else '\u2559 '
+            ans += str(i) + '. ' + full_day[0]
+            ans += ' \u21D2 ' if full_day[2] != '' else ''
+            ans += '_' + full_day[2] + '_'
+            ans += ' \u21D2 ' if full_day[2] != '' else ''
+            ans += '_' + full_day[3] + '_\n'
+            i += 1
+        bot.send_message(message.chat.id,
+                         text=ans,
+                         parse_mode='Markdown')
 
 
 @bot.message_handler(commands=['schedule'])
 def send_schedule(message):
-    with open('schedule.txt', encoding='utf-8') as f:
-        textmessage = "*РОЗКЛАД* \n\n"
-        received_schedule = f.readlines()
-        for line in received_schedule:
-            textmessage += line
-        bot.send_message(message.chat.id,
-                         text=textmessage,
-                         parse_mode='Markdown')
+    ans = ''
+    for week, days in sched.DICT.items():
+        ans += f'*{week} ТИЖДЕНЬ*\n\n'
+        for weekday, full_list in days.items():
+            ans += (f'*{sched.weekdays[weekday]}*' + '\n')
+            for i in range (len(full_list)):
+                ans += '\u255F ' if i != len(full_list)-1 else '\u2559 '
+                ans += str(i+1) + '. ' + full_list[i][0]
+                ans += ' \u21D2 ' if full_list[i][-1] != '' else ''
+                ans += f'_{full_list[i][-1]}_' + '\n'
+            ans += '\n'
+        ans += '\n'
+
+    bot.send_message(message.chat.id,
+                     text=ans,
+                     parse_mode='Markdown')
 
 
 @bot.message_handler(commands=['teachers'])
 def send_teachers(message):
-    with open('teachers.txt', encoding='utf-8') as f:
-        answer = f.read()
-        bot.send_message(message.chat.id,
-                         text=answer,
-                         parse_mode='Markdown')
+    ans = '*ВИКЛАДАЧІ* \n\n'
+    for i in range(len(sched.lessons)):
+        ans += '_' + sched.lessons[i] + '_\n'
+        for teacher in sched.teachers[i]:
+            ans += '\u255F ' if teacher != sched.teachers[i][-1] else '\u2559 '
+            ans += teacher + '\n'
+        ans += '\n'
+    bot.send_message(message.chat.id,
+                     text=ans,
+                     parse_mode='Markdown')
 
 
 bot.polling()
