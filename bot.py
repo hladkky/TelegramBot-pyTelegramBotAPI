@@ -58,10 +58,10 @@ def send_now(message):
         time_string = f'Пара розпочнеться за {time_left} хв.'
 
     ans = '_' + time_string + '_\n'
-    ans += '*Дисципліна*: \n  \u2B91 ' + lesson_now[0] + '\n'
-    ans += '*Вид заняття*: \n  \u2B91 ' + lesson_now[-1] + '\n'
-    ans += '*Викладач*: \n  \u2B91 ' + '\n'.join(lesson_now[1]) + '\n'
-    ans += '*Локація*: \n  \u2B91 ' + lesson_now[2] + '\n'
+    ans += '*Дисципліна*: \n  \u27A5 ' + lesson_now[0] + '\n'
+    ans += '*Вид заняття*: \n  \u27A5 ' + lesson_now[-1] + '\n'
+    ans += '*Викладач*: \n  \u27A5 ' + '\n'.join(lesson_now[1]) + '\n'
+    ans += '*Локація*: \n  \u27A5 ' + lesson_now[2] + '\n'
 
     bot.send_message(message.chat.id, ans, parse_mode='Markdown')
 
