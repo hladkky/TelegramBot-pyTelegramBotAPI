@@ -2,13 +2,13 @@ import telebot
 from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime, timezone, timedelta
 import sched
+from sched import bmd, web, cm, oop, bi, en
 
 TOKEN = '731991040:AAHKCcrcVRKDYvrPyupl8COe0JLLYtaKHk8'
 bot = telebot.TeleBot(TOKEN)
 
 permissionsID = 393253446, 531381261
-bmd, web, cm, oop, bi, en = 'Обробка та аналіз БМД', 'Веб-технології та веб-дизайн',\
-                            'Чисельні методи', 'ООП', 'Біоінформатика-1. Основи МББ', 'Іноземна мова'
+
 homework = {bmd: {},
             web: {},
             cm: {},
@@ -35,6 +35,12 @@ even_week = str((current_week - first_week) % 2 + 1)
 @bot.message_handler(commands=['now'])
 def send_now(message):
     num_of_lesson = -1
+    try:
+        lessons_today = sched.DICT[even_week][day_of_week]
+    except KeyError:
+        bot.send_message(message.chat.id, 'Сьогодні вихідний.')
+        return
+
     for start, end in time_of_lessons:
         num_of_lesson += 1
         if time_now < end:
@@ -43,9 +49,8 @@ def send_now(message):
         bot.send_message(message.chat.id, 'Пари закінчились.')
         return
 
-    num_of_lesson=2
     try:
-        lesson_now = sched.DICT[even_week][day_of_week][num_of_lesson]
+        lesson_now = lessons_today[num_of_lesson]
     except IndexError:
         bot.send_message(message.chat.id, 'Пари закінчились.')
         return
@@ -83,13 +88,12 @@ def send_homework(message):
     for d, hw in homework.items():
         task_list = ''
         if not hw:
-            task_list += '   -\n'
+            task_list += '    -\n'
         else:
             for task, dates in hw.items():
-                deadlines = " ".join(dates)
-                task_list += f'   \u2B9A *{task}*:\n    ' \
-                             f'    \u2BA1   {deadlines}\n'
-        answer += f'*{d}*:\n {task_list}\n'
+                task_list += f'   \u2756 *{task}*:\n    ' \
+                             f'    \u27A5   {dates}\n'
+        answer += f'*{d}*:\n{task_list}\n'
     bot.send_message(message.chat.id, answer, parse_mode='Markdown')
 
 
@@ -103,6 +107,7 @@ def set_homework(message: Message):
         markup.add(bmd, web, cm, oop, bi, en)
         msg = bot.send_message(message.chat.id, 'Дисципліна:', reply_markup=markup)
         bot.register_next_step_handler(msg, name_step)
+        print('hi')
 
 
 def name_step(message):
@@ -184,8 +189,7 @@ def send_today_schedule(message: Message):
         ans = '*' + sched.weekdays[_day_of_week] + '*\n'
         i = 1
         for full_day in sched.DICT[even_week][_day_of_week]:
-            ans += '\u255F ' if full_day != sched.DICT[even_week][_day_of_week][-1] else '\u2559 '
-            ans += str(i) + '. ' + full_day[0]
+            ans += '       ' + str(i) + '. ' + full_day[0]
             ans += ' \u21D2 ' if full_day[2] != '' else ''
             ans += '_' + full_day[2] + '_'
             ans += ' \u21D2 ' if full_day[2] != '' else ''
@@ -200,12 +204,11 @@ def send_today_schedule(message: Message):
 def send_schedule(message):
     ans = ''
     for week, days in sched.DICT.items():
-        ans += f'*{week} ТИЖДЕНЬ*\n\n'
+        ans += f'\u275A *{week} ТИЖДЕНЬ*\n\n'
         for weekday, full_list in days.items():
-            ans += (f'*{sched.weekdays[weekday]}*' + '\n')
+            ans += (f'\u25FD *{sched.weekdays[weekday]}*' + '\n')
             for i in range (len(full_list)):
-                ans += '\u255F ' if i != len(full_list)-1 else '\u2559 '
-                ans += str(i+1) + '. ' + full_list[i][0]
+                ans += '       ' + str(i+1) + '. ' + full_list[i][0]
                 ans += ' \u21D2 ' if full_list[i][-1] != '' else ''
                 ans += f'_{full_list[i][-1]}_' + '\n'
             ans += '\n'
@@ -220,9 +223,9 @@ def send_schedule(message):
 def send_teachers(message):
     ans = '*ВИКЛАДАЧІ* \n\n'
     for i in range(len(sched.lessons)):
-        ans += '_' + sched.lessons[i] + '_\n'
+        ans += '\u2771 _' + sched.lessons[i] + '_\n'
         for teacher in sched.teachers[i]:
-            ans += '\u255F ' if teacher != sched.teachers[i][-1] else '\u2559 '
+            ans += '  \u274F '
             ans += teacher + '\n'
         ans += '\n'
     bot.send_message(message.chat.id,
