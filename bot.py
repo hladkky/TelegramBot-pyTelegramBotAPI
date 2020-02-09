@@ -9,7 +9,7 @@ bot = telebot.TeleBot(TOKEN)
 
 permissionsID = 393253446, 531381261
 
-homework = {bmd: {'t': '1'},
+homework = {bmd: {},
             web: {},
             cm: {},
             oop: {},
@@ -98,7 +98,6 @@ def send_homework(message):
             task_list += '    -\n'
         else:
             for task, dates in hw.items():
-                print(dates)
                 task_list += f'   \u2756 *{task}*:\n    ' \
                              f'    \u27A5   {dates}\n'
         answer += f'*{d}*:\n{task_list}\n'
@@ -207,6 +206,7 @@ def send_today_schedule(message: Message):
 
 @bot.message_handler(commands=['schedule'])
 def send_schedule(message):
+    print(message.chat.id)
     ans = ''
     for week, days in sched.DICT.items():
         ans += f'\u275A *{week} ТИЖДЕНЬ*\n\n'
