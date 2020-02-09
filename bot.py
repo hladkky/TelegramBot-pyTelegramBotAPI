@@ -9,7 +9,7 @@ bot = telebot.TeleBot(TOKEN)
 
 permissionsID = 393253446, 531381261
 
-homework = {bmd: {},
+homework = {bmd: {'t': '1'},
             web: {},
             cm: {},
             oop: {},
@@ -98,6 +98,7 @@ def send_homework(message):
             task_list += '    -\n'
         else:
             for task, dates in hw.items():
+                print(dates)
                 task_list += f'   \u2756 *{task}*:\n    ' \
                              f'    \u27A5   {dates}\n'
         answer += f'*{d}*:\n{task_list}\n'
@@ -177,8 +178,7 @@ def new_task_step(message):
 def set_date(message):
     discipline = buffer['name']
     task = buffer['task']
-    dates = message.text.split(' ')
-    homework[discipline][task] = [message.text]
+    homework[discipline][task] = message.text
     bot.send_message(message.chat.id, 'Успішно оновлено!')
 # ---------------------- SETHOMEWORK END ----------------------
 
