@@ -60,7 +60,7 @@ def send_now(message: Message):
         bot.send_message(message.chat.id, '*Пари закінчились*', parse_mode='Markdown')
         return
 
-    hours_difference = (time_now // 100 - start // 100) * 40
+    hours_difference = abs((time_now // 100 - start // 100) * 40)
 
     if time_now > start:
         time_left = time_now - start - hours_difference
