@@ -22,8 +22,8 @@ time_of_lessons = [(830, 1005),
                    (1220, 1355),
                    (1415, 1550)]
 
-tz = timezone(timedelta(hours=-2))
-first_week = int(datetime(2020, 2, 1).strftime('%W'))
+tz = timezone(timedelta(hours=2))
+first_week = datetime(2020, 2, 1, tzinfo=tz)
 
 
 def get_date():
@@ -31,8 +31,8 @@ def get_date():
     today, time_now = date.strftime('%d.%m %H%M').split(' ')
     time_now = int(time_now)
     day_of_week = date.weekday()
-    current_week = int(date.strftime('%W'))
-    even_week = (current_week - first_week) % 2
+    weeks_past = (date - first_week).days // 7
+    even_week = weeks_past % 2
     return time_now, day_of_week, even_week
 
 
@@ -206,7 +206,6 @@ def send_today_schedule(message: Message):
 
 @bot.message_handler(commands=['schedule'])
 def send_schedule(message):
-    print(message.chat.id)
     ans = ''
     for week, days in sched.DICT.items():
         ans += f'\u275A *{week} ТИЖДЕНЬ*\n\n'
