@@ -1,13 +1,12 @@
+import os
 import telebot
 from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime, timezone, timedelta
 import sched
-from sched import bmd, web, cm, oop, bi, en
 import threading
-# import time
 import json
 
-TOKEN = '731991040:AAHKCcrcVRKDYvrPyupl8COe0JLLYtaKHk8'
+TOKEN = os.getenv('TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
 permissionsID = 393253446, 531381261
