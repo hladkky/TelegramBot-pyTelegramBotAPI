@@ -3,18 +3,15 @@ from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime, timezone, timedelta
 import sched
 from sched import bmd, web, cm, oop, bi, en
+import threading
+# import time
+import json
 
 TOKEN = '731991040:AAHKCcrcVRKDYvrPyupl8COe0JLLYtaKHk8'
 bot = telebot.TeleBot(TOKEN)
 
 permissionsID = 393253446, 531381261
-
-homework = {bmd: {},
-            web: {},
-            cm: {},
-            oop: {},
-            bi: {},
-            en: {}}
+homework_from_file = {}
 buffer = {}
 
 time_of_lessons = [(830, 1005),
@@ -28,6 +25,7 @@ first_week = datetime(2020, 2, 1, tzinfo=tz)
 
 def get_date():
     date = datetime.now(tz=tz)
+    # date = datetime(2020, 2, 12, tzinfo=tz)
     today, time_now = date.strftime('%d.%m %H%M').split(' ')
     time_now = int(time_now)
     day_of_week = date.weekday()
@@ -36,30 +34,43 @@ def get_date():
     return time_now, day_of_week, even_week
 
 
-@bot.message_handler(commands=['now'])
-def send_now(message: Message):
-    time_now, day_of_week, even_week = get_date()
+def get_num_of_lesson():
     num_of_lesson = -1
-    try:
-        lessons_today = sched.DICT[str(even_week+1)][day_of_week]
-    except KeyError:
-        bot.send_message(message.chat.id, '*Сьогодні вихідний*', parse_mode='Markdown')
-        return
+    time_now = int(datetime.now(tz=tz).strftime('%H%M'))
 
     for start, end in time_of_lessons:
         num_of_lesson += 1
         if time_now < end:
             break
     else:
+        return
+    return num_of_lesson
+
+
+@bot.message_handler(commands=['now'])
+def send_now(message: Message):
+    # Get the number of current or upcoming lesson
+    num_of_lesson = get_num_of_lesson()
+
+    # If NoneType is returned
+    if not num_of_lesson:
         bot.send_message(message.chat.id, '*Пари закінчились*', parse_mode='Markdown')
         return
 
+    # Get all necessary information about today
+    time_now, day_of_week, even_week = get_date()
     try:
-        lesson_now = lessons_today[num_of_lesson]
-    except IndexError:
-        bot.send_message(message.chat.id, '*Пари закінчились*', parse_mode='Markdown')
+        lessons_today = sched.DICT[str(even_week + 1)][day_of_week]
+    # Day of week Sat or Sun
+    except KeyError:
+        bot.send_message(message.chat.id, '*Сьогодні вихідний*', parse_mode='Markdown')
         return
 
+    # Information about current lesson and time of begin and end of it
+    lesson_now = lessons_today[num_of_lesson]
+    start, end = time_of_lessons[num_of_lesson]
+
+    # Mean 60 minutes format
     hours_difference = abs((time_now // 100 - start // 100) * 40)
 
     if time_now > start:
@@ -80,10 +91,10 @@ def send_now(message: Message):
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
-    reply = "Привіт. Радий вітати тебе!\n" \
-            "Це наш бот.\n\nА наш староста завжди оновлює список дз.\n\n" \
-            "Використовуй команду /homework аби дізнатись актуальний список дз.\n" \
-            "\nЗі скаргами та пропозиціями писати @hladkky"
+    reply = "👋🏻 Привіт. Радий вітати тебе!\n" \
+            "🤖 Це наш бот.\n\n📝 А наш староста завжди оновлює список дз.\n\n" \
+            "⌨️ Використовуй команду /homework аби дізнатись актуальний список дз.\n" \
+            "\n📕 Зі скаргами та пропозиціями писати @hladkky"
     with open('sticker.webp', 'rb') as sti:
         bot.send_sticker(message.chat.id, sti)
     bot.send_message(message.chat.id, reply)
@@ -92,54 +103,76 @@ def welcome(message):
 @bot.message_handler(commands=['homework'])
 def send_homework(message):
     answer = ''
-    for d, hw in homework.items():
-        task_list = ''
-        if not hw:
-            task_list += '    -\n'
-        else:
-            for task, dates in hw.items():
-                task_list += f'   \u2756 *{task}*:\n    ' \
-                             f'    \u27A5   {dates}\n'
-        answer += f'*{d}*:\n{task_list}\n'
+    with open('data.json', encoding='utf-8') as f:
+        homework = json.load(f)
+        for d, hw in homework.items():
+            task_list = ''
+            if not hw:
+                task_list += '       -\n'
+            else:
+                for task, dates in hw.items():
+                    task_list += f'   \u2756 *{task}*:\n    ' \
+                                 f'    \u27A5   {dates}\n'
+            answer += f'*{d}*:\n{task_list}\n'
     bot.send_message(message.chat.id, answer, parse_mode='Markdown')
 
 
+def cancel_message(message):
+    bot.reply_to(message, 'Відмінено', reply_markup=telebot.types.ReplyKeyboardRemove())
+    return
+
+
+# ===============================================================
 # ---------------------- SETHOMEWORK STEPS ----------------------
 @bot.message_handler(commands=['sethomework'])
 def set_homework(message: Message):
-    if message.from_user.id not in permissionsID:
+    if message.chat.type != 'private':
+        bot.send_message(message.chat.id, 'Команда призначена для приватних повідомлень.')
+    elif message.from_user.id not in permissionsID:
         bot.send_message(message.chat.id, 'Відсутні права доступу.')
     else:
-        markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-        markup.add(bmd, web, cm, oop, bi, en)
+        markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, row_width=2)
+        markup.add(*(telebot.types.KeyboardButton(less) for less in sched.lessons))
+        markup.add("Відмінити↩")
         msg = bot.send_message(message.chat.id, 'Дисципліна:', reply_markup=markup)
         bot.register_next_step_handler(msg, name_step)
 
 
 def name_step(message):
-    name = message.text
-    if name not in homework.keys():
+    name_of_lesson = message.text
+    if name_of_lesson == 'Відмінити↩':
+        return cancel_message(message)
+
+    if name_of_lesson not in sched.lessons:
         bot.reply_to(message, 'Предмет відсутній', reply_markup=telebot.types.ReplyKeyboardRemove())
         return
-    buffer['name'] = name
-    reply = 'Додати, перезаписати, видалити?'
+
+    buffer['name'] = name_of_lesson
+    reply = 'Яку дію виконати?'
     markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-    markup.add('Додати', 'Перезаписати', 'Видалити')
+    markup.add('✅Додати', '♻Перезаписати', '❎Видалити', 'Відмінити↩')
     msg = bot.reply_to(message, text=reply, reply_markup=markup)
-    bot.register_next_step_handler(msg, set_step)
+    bot.register_next_step_handler(msg, option_step)
 
 
-def set_step(message):
-    if message.text == 'Видалити':
+def option_step(message):
+    if message.text not in ('✅Додати', '♻Перезаписати', '❎Видалити'):
+        return cancel_message(message)
+
+    with open('data.json', encoding='utf-8') as f:
+        global homework_from_file
+        homework_from_file = json.load(f)
+
+    buffer['tasks'] = homework_from_file[buffer['name']].copy()
+
+    if message.text == '❎Видалити':
         markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
         markup.add('Усі завдання')
-        for task in homework[buffer['name']]:
-            markup.add(task)
+        markup.add(*(task for task in buffer['tasks']))
         msg = bot.send_message(message.chat.id, 'Оберіть завдання:', reply_markup=markup)
-        bot.register_next_step_handler(msg, choose_delete_task)
-        return
-    elif message.text == 'Перезаписати':
-        homework[buffer['name']] = {}
+        return bot.register_next_step_handler(msg, choose_delete_task)
+    elif message.text == '♻Перезаписати':
+        buffer['tasks'] = {}
     msg = bot.send_message(message.chat.id,
                            text='Нове завдання:',
                            reply_markup=telebot.types.ReplyKeyboardRemove())
@@ -147,58 +180,81 @@ def set_step(message):
 
 
 def choose_delete_task(message):
-    discipline = buffer['name']
     if message.text == 'Усі завдання':
-        homework[discipline] = []
+        buffer['tasks'] = {}
     else:
-        del homework[discipline][message.text]
+        try:
+            del buffer['tasks'][message.text]
+        except KeyError:
+            markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+            markup.add('Усі завдання')
+            markup.add(*(task for task in buffer['tasks']))
+            m = bot.send_message(message.chat.id, 'Оберіть завдання серед запропонованих:', reply_markup=markup)
+            return bot.register_next_step_handler(m, choose_delete_task)
+
+    homework_from_file[buffer['name']] = buffer['tasks']
+    submit_changes()
     bot.send_message(message.chat.id,
                      text='Успішно видалено!',
                      reply_markup=telebot.types.ReplyKeyboardRemove())
 
 
 def new_task_step(message):
-    discipline = buffer['name']
-    buffer['task'] = message.text
-
-    markup = InlineKeyboardMarkup()
-
-    item1 = InlineKeyboardButton('1')
-    item2 = InlineKeyboardButton('2')
-
-    markup.add(item1, item2)
-
+    buffer['new_task'] = message.text
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    date = datetime.today()
+    list_of_dates = []
+    for i in range(14):
+        date += timedelta(days=1)
+        item_date, item_weekday = date.strftime('%d.%m %w').split()
+        if int(item_weekday) <= 4:
+            list_of_dates.append(f'{item_date} {sched.weekdays[int(item_weekday)]}')
+    markup.add(*list_of_dates)
     bot.send_message(message.chat.id,
-                     text="Укажіть одну або декілька дат для заданого завдання:",
-                     reply_markup=telebot.types.ReplyKeyboardRemove())
+                     text="Укажіть дату заданого завдання:",
+                     reply_markup=markup)
     bot.register_next_step_handler(message, set_date)
 
 
 def set_date(message):
-    discipline = buffer['name']
-    task = buffer['task']
-    homework[discipline][task] = message.text
-    bot.send_message(message.chat.id, 'Успішно оновлено!')
+    homework_from_file[buffer['name']][buffer['new_task']] = message.text.split()[0]
+    submit_changes()
+    bot.send_message(message.chat.id, text='Успішно оновлено!',
+                     reply_markup=telebot.types.ReplyKeyboardRemove)
+
+
+def submit_changes():
+    global buffer
+    del buffer
+    with open('data.json', 'w', encoding='utf-8') as f:
+        json.dump(homework_from_file, f, ensure_ascii=False, indent=4)
+    buffer = {}
 # ---------------------- SETHOMEWORK END ----------------------
+# ===============================================================
 
 
 @bot.message_handler(commands=['today', 'tomorrow'])
 def send_today_schedule(message: Message):
     time_now, day_of_week, even_week = get_date()
+    date = datetime.today()
     if '/tomorrow' in message.text:
         day_of_week = (day_of_week + 1) % 7
+        date += timedelta(days=1)
+    day, month = date.strftime('%d %m').split()
+    ans = '🗓{0} {1}\n\n'.format(day, sched.months[int(month) - 1])
     if day_of_week == 5 or day_of_week == 6:
         bot.send_message(message.chat.id, text='*Вихідний*', parse_mode='Markdown')
     else:
         week = list(sched.DICT.keys())[even_week]
-        ans = f'\u275A *{week} ТИЖДЕНЬ*\n\n'
-        ans += '*' + sched.weekdays[day_of_week] + '*\n'
+        ans += f'🔑 *{week} ТИЖДЕНЬ*\n\n'
+        ans += '🔎 *' + sched.weekdays[day_of_week] + '*\n'
         i = 1
         for full_day in sched.DICT[str(even_week+1)][day_of_week]:
-            ans += '       ' + str(i) + '. ' + full_day[0]
-            ans += ' \u21D2 ' if full_day[2] != '' else ''
+            ans += f'❇{i}. ' if get_num_of_lesson() == i-1 else f'      {i}. '
+            ans += full_day[0]
+            ans += '\n           🏢 ' if full_day[2] != '' else ''
             ans += '_' + full_day[2] + '_'
-            ans += ' \u21D2 ' if full_day[2] != '' else ''
+            ans += '\n           📨 ' if full_day[2] != '' else ''
             ans += '_' + full_day[3] + '_\n'
             i += 1
         bot.send_message(message.chat.id, text=ans, parse_mode='Markdown')
@@ -208,12 +264,13 @@ def send_today_schedule(message: Message):
 def send_schedule(message):
     ans = ''
     for week, days in sched.DICT.items():
-        ans += f'\u275A *{week} ТИЖДЕНЬ*\n\n'
+        ans += f'🔑 *{week} ТИЖДЕНЬ*\n\n'
         for weekday, full_list in days.items():
-            ans += (f'\u25FD *{sched.weekdays[weekday]}*' + '\n')
-            for i in range (len(full_list)):
-                ans += '  \u25B8  ' + str(i+1) + '. ' + full_list[i][0]
-                ans += ' \u21D2 ' if full_list[i][-1] != '' else ''
+            ans += (f'🔸 *{sched.weekdays[weekday]}*' + '\n')
+            for i in range(len(full_list)):
+                ans += str(i+1)+'. '
+                ans += full_list[i][0]
+                ans += '\n          ' if full_list[i][-1] != '' else ''
                 ans += f'_{full_list[i][-1]}_' + '\n'
             ans += '\n'
         ans += '\n'
@@ -238,3 +295,24 @@ def send_teachers(message):
 
 
 bot.polling()
+# ================================================
+
+# def cycle():
+#
+#
+#
+# def run_bot():
+#     with open('data.json', encoding='utf-8') as f:
+#         d2 = json.load(f)
+#         while 1:
+#             print(2)
+
+
+# ================================================
+# t1 = threading.Thread(target=run_bot)
+# t2 = threading.Thread(target=cycle)
+#
+# # starting thread 1
+# t1.start()
+# # starting thread 2
+# t2.start()
